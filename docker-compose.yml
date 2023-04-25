@@ -1,0 +1,64 @@
+version: "3.8"
+
+networks:
+  default:
+
+services:
+
+  db:
+    image: postgres:12
+    env_file:
+      - .env
+    environment:
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    networks:
+      - default
+    volumes:
+      - app-db-data:/var/lib/postgresql/data/pgdata
+
+  queue:
+    image: rabbitmq:3
+    networks:
+      - default
+  
+  backend:
+    build:
+      context: ./backend
+      dockerfile: backend.dockerfile
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-false}
+    image: 'ssgui-backend:${TAG-latest}'
+    depends_on:
+      - db
+    env_file:
+      - .env
+    networks:
+      - default
+  
+  celeryworker:
+    build:
+      context: ./backend
+      dockerfile: celeryworker.dockerfile
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-false}
+    deploy:
+      resources:
+        limits:
+          memory: '4G'
+          cpus: '2'
+    image: 'ssgui-worker:${TAG-latest}'
+    depends_on:
+      - db
+      - queue
+    env_file:
+      - .env
+    networks:
+      - default
+  
+  frontend:
+    build:
+      context: ./frontend
+    image: 'ssgui:${TAG-latest}'
+
+volumes:
+  app-db-data:
