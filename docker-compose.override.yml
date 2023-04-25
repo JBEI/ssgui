@@ -1,0 +1,98 @@
+version: "3.8"
+services:
+
+  proxy:
+    image: traefik:v2.2
+    networks:
+      - traefik-public
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "80:80"
+    command:
+      - --providers.docker
+      - --providers.docker.constraints=Label(`traefik.constraint-label`, `traefik-public`)
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:80
+      - --accesslog
+      - --log
+      - --api
+      - --api.insecure=true
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-public
+      - traefik.constraint-label=traefik-public
+      - traefik.http.routers.ssgui-proxy-http.rule=Host(`traefik.lvh.me`)
+      - traefik.http.routers.ssgui-proxy-http.entrypoints=http
+      - traefik.http.routers.ssgui-proxy-http.service=api@internal
+      - traefik.http.services.ssgui-proxy.loadbalancer.server.port=8080
+
+  pgadmin:
+    image: dpage/pgadmin4
+    networks:
+      - traefik-public
+      - default
+    depends_on:
+      - db
+    env_file:
+      - .env
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_network
+      - traefik.constraint-label=traefik-public
+      - traefik.http.routers.ssgui-pgadmin-http.rule=Host(`pgadmin.lvh.me`)
+      - traefik.http.routers.ssgui-pgadmin-http.entrypoints=http
+      - traefik.http.services.ssgui-pgadmin.loadbalancer.server.port=5050
+
+  backend:
+    build:
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-true}
+    environment:
+      - SERVER_URL=http://ssgui.lvh.me
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_network
+      - traefik.constraint-label=traefik-public
+      - traefik.http.routers.ssgui-backend-http.rule=Host(`ssgui.lvh.me`) && PathPrefix(`/api`, `/docs`, `/redoc`)
+      - traefik.http.services.ssgui-backend.loadbalancer.server.port=80
+    command: bash -c "while true; do sleep 1; done"
+    networks:
+      - traefik-public
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./backend/app:/app
+      - ./diva:/diva:ro
+
+  celeryworker:
+    build:
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-true}
+    environment:
+      - SERVER_URL=http://ssgui.lvh.me
+    volumes:
+      - ./backend/app:/app
+      - ./diva:/diva:ro
+      - /Volumes:/Volumes
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: development.Dockerfile
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_network
+      - traefik.constraint-label=traefik-public
+      - traefik.http.routers.ssgui-frontend-http.rule=Host(`ssgui.lvh.me`)
+      - traefik.http.services.ssgui-frontend.loadbalancer.server.port=80
+    networks:
+      - traefik-public
+    volumes:
+      - ./diva:/diva:ro
+      - ./frontend/src/:/app/src/
+      - /Volumes:/Volumes
+
+networks:
+  traefik-public:
+    name: traefik_network
