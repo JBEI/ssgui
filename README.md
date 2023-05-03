@@ -10,6 +10,11 @@ Start the stack with Docker Compose:
 docker compose up -d
 ```
 
+Then start the live-reloading backend with
+```bash
+docker compose exec backend /start-reload.sh
+```
+
 Now you can open your browser and interact with these URLs:
 
 - Frontend, built with Docker, with routes handled based on the path:
@@ -178,3 +183,24 @@ set in the scripts before calling the `docker compose` command.
 As the application is written as docker microservices, a docker swarm
 production deployment is very convenient. Information about deploying
 a docker swarm application can be found [here](https://dockerswarm.rocks/).
+
+## Acknowledgements
+
+SSGUI depends on the following separate libraries and packages:
+
+* IGV.js
+* PostgreSQL
+* RabbitMQ
+* Celery
+* Traefik
+* Pgadmin
+* VueJS
+* Samtools
+* Alembic
+* Gunicorn
+* FastAPI
+* Pydantic
+* SQLAlchemy
+* Pandas
+
+We thank all their contributors and maintainers!
